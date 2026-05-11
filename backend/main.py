@@ -2,9 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
+import datetime
 
 app = FastAPI()
 
@@ -30,50 +29,26 @@ except Exception as e:
     print("Running in fallback mode")
 
 
-def send_escalation_email(user_message: str, session_id: str):
-    """Send email alert when a user requests human escalation."""
+def trigger_n8n_escalation(user_message: str, session_id: str):
+    """Trigger N8n webhook on escalation."""
     try:
-        gmail_user = os.environ.get("GMAIL_USER")
-        gmail_password = os.environ.get("GMAIL_APP_PASSWORD")
-        alert_email = os.environ.get("ALERT_EMAIL")
-
-        if not all([gmail_user, gmail_password, alert_email]):
-            print("⚠️ Email env vars not set — skipping email notification")
+        webhook_url = os.environ.get("N8N_WEBHOOK_URL")
+        if not webhook_url:
+            print("⚠️ N8N_WEBHOOK_URL not set — skipping notification")
             return
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "🚨 Customer Support Escalation Request"
-        msg["From"] = gmail_user
-        msg["To"] = alert_email
+        payload = {
+            "session_id": session_id,
+            "user_message": user_message,
+            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        }
 
-        html_body = f"""
-        <html><body style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2 style="color: #d9534f;">🚨 Escalation Alert</h2>
-            <p>A customer has requested to speak with a human agent.</p>
-            <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-                <tr>
-                    <td style="padding: 8px; font-weight: bold; background: #f5f5f5;">Session ID</td>
-                    <td style="padding: 8px;">{session_id}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; font-weight: bold; background: #f5f5f5;">User Message</td>
-                    <td style="padding: 8px;">{user_message}</td>
-                </tr>
-            </table>
-            <p style="margin-top: 20px; color: #888;">Please follow up with the customer as soon as possible.</p>
-        </body></html>
-        """
-
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, alert_email, msg.as_string())
-
-        print(f"✅ Escalation email sent to {alert_email}")
+        with httpx.Client(timeout=5.0) as client:
+            response = client.post(webhook_url, json=payload)
+            print(f"✅ N8n webhook triggered: status={response.status_code}")
 
     except Exception as e:
-        print(f"❌ Failed to send escalation email: {type(e).__name__}: {e}")
+        print(f"❌ N8n webhook failed: {type(e).__name__}: {e}")
 
 
 class ChatRequest(BaseModel):
@@ -98,6 +73,7 @@ def health():
         "status": "healthy",
         "rag_loaded": rag_chain is not None,
         "groq_configured": bool(groq_key and len(groq_key) > 10),
+        "n8n_configured": bool(os.environ.get("N8N_WEBHOOK_URL")),
     }
 
 
@@ -108,8 +84,7 @@ async def chat(request: ChatRequest):
     # Escalation check
     escalation_keywords = ["human", "agent", "speak to human", "real person", "supervisor"]
     if any(keyword in message for keyword in escalation_keywords):
-        # Send email alert (non-blocking — won't crash if it fails)
-        send_escalation_email(request.message, request.session_id)
+        trigger_n8n_escalation(request.message, request.session_id)
         return ChatResponse(
             response="I'll connect you with a human agent right away. Please hold on.",
             escalated=True,
