@@ -54,19 +54,9 @@ Answer:"""
 
     return chain
 
-def get_response(chain, user_message: str):
-    if any(phrase in user_message.lower() for phrase in ESCALATION_PHRASES):
-        return {
-            "answer": "Sure! Let me connect you to a human agent right away. Please hold on.",
-            "escalate": True,
-            "reason": "user_requested"
-        }
-
-    answer = chain.invoke(user_message)
-    escalate = any(signal in answer.lower() for signal in UNCERTAINTY_SIGNALS)
-
-    return {
-        "answer": answer,
-        "escalate": escalate,
-        "reason": "low_confidence" if escalate else None
-    }
+def get_response(chain, user_message: str) -> str:
+    result = chain.invoke({"query": user_message})
+    # Extract string from dict if needed
+    if isinstance(result, dict):
+        return result.get("answer") or result.get("result") or str(result)
+    return str(result)
