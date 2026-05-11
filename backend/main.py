@@ -84,7 +84,7 @@ async def chat(request: ChatRequest):
 
         client = Groq(api_key=groq_key)
         completion = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",   # ✅ same fast model your rag_pipeline uses   # ✅ current, fast, free on Groq,
             messages=[
                 {
                     "role": "system",
