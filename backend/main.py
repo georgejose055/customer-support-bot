@@ -1,75 +1,102 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from rag_pipeline import load_chain, get_response
-from twilio.twiml.messaging_response import MessagingResponse
-from dotenv import load_dotenv
-import httpx
-import asyncio
 import os
+import httpx
 
-load_dotenv()
-
-app = FastAPI(title="Customer Support Bot", version="0.1.0")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-chain = load_chain()
+# Load RAG pipeline only if vectorstore exists
+rag_chain = None
+try:
+    from rag_pipeline import get_rag_chain
+    rag_chain = get_rag_chain()
+    print("✅ RAG pipeline loaded successfully")
+except Exception as e:
+    print(f"⚠️ RAG pipeline not loaded: {e}")
+    print("Running in fallback mode")
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: str = "default"
 
-async def trigger_escalation(user_message: str, bot_answer: str, reason: str, channel: str = "web"):
-    webhook_url = os.getenv("N8N_ESCALATION_WEBHOOK")
-    if webhook_url:
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                await client.post(webhook_url, json={
-                    "user_message": user_message,
-                    "bot_answer": bot_answer,
-                    "reason": reason,
-                    "channel": channel
-                })
-        except Exception as e:
-            print(f"Escalation webhook failed: {e}")
+class ChatResponse(BaseModel):
+    response: str
+    escalated: bool = False
 
-# ── Chat endpoint ──────────────────────────────────────────
-@app.post("/chat")
-async def chat(req: ChatRequest):
-    result = get_response(chain, req.message)
-    if result["escalate"]:
-        asyncio.create_task(trigger_escalation(
-            user_message=req.message,
-            bot_answer=result["answer"],
-            reason=result.get("reason", "unknown"),
-            channel="web"
-        ))
-    return result
+N8N_WEBHOOK = os.getenv("N8N_ESCALATION_WEBHOOK", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-# ── Twilio WhatsApp webhook ────────────────────────────────
-@app.post("/whatsapp")
-async def whatsapp_webhook(request: Request, Body: str = Form(...)):
-    result = get_response(chain, Body)
-    if result["escalate"]:
-        asyncio.create_task(trigger_escalation(
-            user_message=Body,
-            bot_answer=result["answer"],
-            reason=result.get("reason", "unknown"),
-            channel="whatsapp"
-        ))
-    twiml = MessagingResponse()
-    reply = result["answer"]
-    if result["escalate"]:
-        reply += "\n\n🔔 A human agent has been notified and will reach out shortly."
-    twiml.message(reply)
-    return str(twiml)
+async def escalate_to_human(message: str, session_id: str):
+    if not N8N_WEBHOOK:
+        print("No webhook configured, skipping escalation")
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(N8N_WEBHOOK, json={
+                "message": message,
+                "session_id": session_id,
+                "timestamp": str(__import__("datetime").datetime.now())
+            }, timeout=5.0)
+    except Exception as e:
+        print(f"Escalation failed: {e}")
 
-# ── Health check ───────────────────────────────────────────
+def should_escalate(response: str) -> bool:
+    escalation_triggers = [
+        "i don't know", "i'm not sure", "cannot help",
+        "speak to a human", "contact support", "not available",
+        "unclear", "i cannot", "i am unable"
+    ]
+    return any(trigger in response.lower() for trigger in escalation_triggers)
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Customer Support Bot API is running 🚀"}
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": "llama-3.1-8b-instant"}
+    return {
+        "status": "healthy",
+        "rag_loaded": rag_chain is not None,
+        "groq_configured": bool(GROQ_API_KEY)
+    }
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    if rag_chain is None:
+        # Fallback: use Groq directly without RAG
+        try:
+            from groq import Groq
+            client = Groq(api_key=GROQ_API_KEY)
+            completion = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": "You are a helpful customer support assistant."},
+                    {"role": "user", "content": request.message}
+                ],
+                max_tokens=512
+            )
+            response_text = completion.choices[0].message.content
+        except Exception as e:
+            response_text = f"I'm having trouble connecting right now. Please try again later."
+            print(f"Groq fallback error: {e}")
+    else:
+        try:
+            response_text = rag_chain.invoke(request.message)
+        except Exception as e:
+            response_text = "I'm unable to process that right now."
+            print(f"RAG error: {e}")
+
+    escalated = should_escalate(response_text)
+    if escalated:
+        await escalate_to_human(request.message, request.session_id)
+
+    return ChatResponse(response=response_text, escalated=escalated)
