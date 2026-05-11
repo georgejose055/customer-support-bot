@@ -10,3 +10,4 @@ sentence-transformers
 twilio
 requests
 watchdog
+langchain-huggingface
