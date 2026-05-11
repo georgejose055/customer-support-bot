@@ -35,14 +35,24 @@ export default function ChatWindow() {
         body: JSON.stringify({ message: userMsg }),
       });
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: data.answer, escalated: data.escalate },
+        {
+          role: "bot",
+          text: data.response || "Sorry, I couldn't get a response.",
+          escalated: data.escalated,
+        },
       ]);
-    } catch {
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong.";
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: "⚠️ Something went wrong. Please try again." },
+        { role: "bot", text: `⚠️ ${errorMsg} Please try again.` },
       ]);
     } finally {
       setLoading(false);
@@ -71,7 +81,7 @@ export default function ChatWindow() {
         {loading && (
           <div className="flex justify-start mb-3">
             <div className="bg-gray-100 text-gray-500 px-4 py-2 rounded-2xl text-sm animate-pulse">
-              Typing...
+              ● ● ●
             </div>
           </div>
         )}
