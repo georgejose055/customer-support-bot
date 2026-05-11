@@ -29,16 +29,19 @@ export default function ChatWindow() {
     setLoading(true);
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000); // 90s for cold start
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMsg }),
+        signal: controller.signal,
       });
-      const data = await res.json();
+      clearTimeout(timeout);
 
-      if (!res.ok) {
-        throw new Error(data.error || "Request failed");
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Request failed");
 
       setMessages((prev) => [
         ...prev,
@@ -49,10 +52,15 @@ export default function ChatWindow() {
         },
       ]);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Something went wrong.";
+      const isTimeout = err instanceof Error && err.name === "AbortError";
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: `⚠️ ${errorMsg} Please try again.` },
+        {
+          role: "bot",
+          text: isTimeout
+            ? "⏳ The server is waking up (free tier cold start). Please send your message again in 30 seconds!"
+            : "⚠️ Something went wrong. Please try again.",
+        },
       ]);
     } finally {
       setLoading(false);
@@ -81,7 +89,7 @@ export default function ChatWindow() {
         {loading && (
           <div className="flex justify-start mb-3">
             <div className="bg-gray-100 text-gray-500 px-4 py-2 rounded-2xl text-sm animate-pulse">
-              ● ● ●
+              ⏳ Thinking... (may take up to 30s on first message)
             </div>
           </div>
         )}
