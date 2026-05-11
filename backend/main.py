@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import os
 
 app = FastAPI()
 
@@ -22,7 +23,7 @@ try:
     get_response_fn = get_response
     print("✅ RAG pipeline loaded successfully")
 except Exception as e:
-    print(f"⚠️ RAG pipeline not loaded: {e}")
+    print(f"⚠️ RAG pipeline not loaded: {type(e).__name__}: {e}")
     print("Running in fallback mode")
 
 
@@ -43,10 +44,11 @@ def root():
 
 @app.get("/health")
 def health():
+    groq_key = os.environ.get("GROQ_API_KEY")
     return {
         "status": "healthy",
         "rag_loaded": rag_chain is not None,
-        "groq_configured": True,
+        "groq_configured": bool(groq_key and len(groq_key) > 10),
     }
 
 
@@ -68,14 +70,19 @@ async def chat(request: ChatRequest):
             response_text = get_response_fn(rag_chain, request.message)
             return ChatResponse(response=response_text, escalated=False)
         except Exception as e:
-            print(f"RAG error: {e}")
+            print(f"RAG error: {type(e).__name__}: {e}")
 
     # Fallback: use Groq directly
     try:
         from groq import Groq
-        import os
 
-        client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        groq_key = os.environ.get("GROQ_API_KEY")
+        print(f"Groq key present: {bool(groq_key)}, length: {len(groq_key) if groq_key else 0}")
+
+        if not groq_key:
+            raise ValueError("GROQ_API_KEY environment variable is not set")
+
+        client = Groq(api_key=groq_key)
         completion = client.chat.completions.create(
             model="llama3-8b-8192",
             messages=[
@@ -91,8 +98,8 @@ async def chat(request: ChatRequest):
         return ChatResponse(response=response_text, escalated=False)
 
     except Exception as e:
-        print(f"Groq fallback error: {e}")
+        print(f"Groq fallback error: {type(e).__name__}: {e}")
         return ChatResponse(
-            response="I'm having trouble connecting right now. Please try again in a moment.",
+            response=f"Debug error — {type(e).__name__}: {str(e)[:150]}",
             escalated=False,
         )
