@@ -1,13 +1,14 @@
 fastapi
 uvicorn
 langchain
-langchain-groq
 langchain-community
-faiss-cpu
-pypdf
-python-dotenv
-sentence-transformers
-twilio
-requests
-watchdog
+langchain-groq
 langchain-huggingface
+groq
+python-dotenv
+pydantic
+pypdf
+faiss-cpu
+sentence-transformers
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
