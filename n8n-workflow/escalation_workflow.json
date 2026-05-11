@@ -1,0 +1,177 @@
+{
+  "name": "n8n Support Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "escalate",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ee6daaf0-56ea-4f32-8c33-78c90ba06512",
+      "name": "Webhook",
+      "webhookId": "1fc89bc8-fa3d-4f7d-9ed5-d6e9e48b73f1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "16uGq8MoaAkijqTuv8k4iKC-kD4_8CpYv3JapMCPYK48",
+          "mode": "list",
+          "cachedResultName": "n8n Support Bot",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16uGq8MoaAkijqTuv8k4iKC-kD4_8CpYv3JapMCPYK48/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/16uGq8MoaAkijqTuv8k4iKC-kD4_8CpYv3JapMCPYK48/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp ": "={{ \"'\" + $now.toFormat(\"yyyy/MM/dd HH:mm:ss\") }}",
+            "User Message": "={{ $json.user_message }}",
+            "Bot Answer": "={{ $json.bot_answer }}",
+            "Reason": "={{ $json.reason }}",
+            "Channel": "={{ $json.channel }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp ",
+              "displayName": "Timestamp ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User Message",
+              "displayName": "User Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Bot Answer",
+              "displayName": "Bot Answer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Channel",
+              "displayName": "Channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "eab2a694-4c0c-4c5e-a4b1-8a4d12fbaf9d",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Sk567n6h7l1YQwqq",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "georgejose099@gmail.com",
+        "subject": "🔔 Customer Escalation Alert",
+        "emailType": "text",
+        "message": "=A customer needs human support!  Message: {{$json.user_message}} Bot Response: {{$json.bot_answer}} Reason: {{$json.reason}} Channel: {{$json.channel}} Time: {{new Date().toISOString()}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "1836c0d5-0fe2-452d-91ac-c5db2baeb39d",
+      "name": "Send a message",
+      "webhookId": "ca554947-5412-43ad-8c39-1970872cb89b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eWdvbTrms5QoXTDm",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "520aa5c1-2fd8-43ce-ac75-68d8e75aa103",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b9ffadebe1eeb016bd95e80895e1e0a737df6ea78e7c6a123173fea4cde0e78d"
+  },
+  "id": "0qkSoDxxf58AYWZb",
+  "tags": []
+}

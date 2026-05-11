@@ -1,0 +1,23 @@
+Q: What are your business hours?
+A: We are open Monday to Friday, 9 AM to 6 PM IST.
+
+Q: How do I reset my password?
+A: Go to Settings > Account > Reset Password and follow the instructions sent to your email.
+
+Q: How do I contact billing support?
+A: Email billing@company.com or call +91-9000000000.
+
+Q: What is your refund policy?
+A: Refunds are processed within 7 business days after request approval.
+
+Q: How do I upgrade my plan?
+A: Log in to your dashboard, go to Billing > Upgrade Plan and choose your preferred tier.
+
+Q: My account is locked. What should I do?
+A: Please contact support@company.com with your registered email and we will unlock it within 24 hours.
+
+Q: Do you offer a free trial?
+A: Yes, we offer a 14-day free trial with no credit card required.
+
+Q: How do I cancel my subscription?
+A: Go to Settings > Billing > Cancel Subscription. Your access continues until the end of the billing cycle.
