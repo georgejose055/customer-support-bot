@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ message, session_id }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Error && error.name === "TimeoutError") {
       return NextResponse.json(
-        { error: "Request timed out. Backend may be waking up, please try again in 30 seconds." },
+        { error: "⏳ Backend is waking up, please try again in 30 seconds." },
         { status: 504 }
       );
     }
